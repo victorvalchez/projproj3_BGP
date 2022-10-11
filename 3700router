@@ -1,9 +1,12 @@
 #!/usr/bin/env -S python3 -u
 
-import argparse, socket, time, json, select, struct, sys, math
+import argparse
+import json
+import select
+import socket
+
 
 class Router:
-
     relations = {}
     sockets = {}
     ports = {}
@@ -12,27 +15,31 @@ class Router:
         print("Router at AS %s starting up" % asn)
         self.asn = asn
         for relationship in connections:
+            # Neighbor == IP
             port, neighbor, relation = relationship.split("-")
 
             self.sockets[neighbor] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sockets[neighbor].bind(('localhost', 0))
             self.ports[neighbor] = int(port)
             self.relations[neighbor] = relation
-            self.send(neighbor, json.dumps({ "type": "handshake", "src": self.our_addr(neighbor), "dst": neighbor, "msg": {}  }))
+            self.send(neighbor,
+                      json.dumps({"type": "handshake", "src": self.our_addr(neighbor), "dst": neighbor, "msg": {}}))
 
     def our_addr(self, dst):
+        """Router IP address, takes the destination and changes the final 2 with a 1"""
         quads = list(int(qdn) for qdn in dst.split('.'))
         quads[3] = 1
         return "%d.%d.%d.%d" % (quads[0], quads[1], quads[2], quads[3])
 
     def send(self, network, message):
         self.sockets[network].sendto(message.encode('utf-8'), ('localhost', self.ports[network]))
+        # I guess network is an index of the neighbor we want to send it to
 
     def run(self):
         while True:
             socks = select.select(self.sockets.values(), [], [], 0.1)[0]
             for conn in socks:
-                k, addr = conn.recvfrom(65535)
+                k, addr = conn.recvfrom(65535)  # k == message, addr == address where it gets it from
                 srcif = None
                 for sock in self.sockets:
                     if self.sockets[sock] == conn:
@@ -54,6 +61,7 @@ class Router:
 
                 print("Received message '%s' from %s" % (msg, srcif))
         return
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='route packets')
