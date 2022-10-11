@@ -40,6 +40,18 @@ class Router:
                         break
                 msg = k.decode('utf-8')
 
+                msg_dic = json.loads(msg) #msg now is a python dictionary
+                print('-------------------------------------------')
+                print(msg_dic["type"])
+                if msg_dic["type"] == "update":
+                    print(msg_dic)
+                    
+                else:
+                    print("operation ", msg_dic["type"], "not implemented")
+
+
+
+
                 print("Received message '%s' from %s" % (msg, srcif))
         return
 
