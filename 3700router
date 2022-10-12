@@ -1,14 +1,17 @@
 #!/usr/bin/env -S python3 -u
 
 import argparse, socket, time, json, select, struct, sys, math
+from http import server
 
 
 class Router:
     relations = {}
     sockets = {}
     ports = {}
+
     table_original = {}
     table_aggregation = {}
+    ports_original = {}
 
     def __init__(self, asn, connections):
         print("Router at AS %s starting up" % asn)
@@ -20,12 +23,15 @@ class Router:
 
             self.sockets[neighbor] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sockets[neighbor].bind(('localhost', 0))
+
             self.ports[neighbor] = int(port)
+            self.ports_original[int(port)] = neighbor
+
             self.relations[neighbor] = relation
             self.send(neighbor,
                       json.dumps({"type": "handshake", "src": self.our_addr(neighbor), "dst": neighbor, "msg": {}}))
 
-            self.table_original[int(port)] = {} 
+            self.table_original[int(port)] = [] 
             
 
     def our_addr(self, dst):
@@ -48,23 +54,12 @@ class Router:
         # update forwarding table
         ##########
 
-        """if not self.ports[msg_dic['src']] in self.table_original:
-            self.table_original[self.ports[msg_dic['src']]] = {}"""
-
         port = self.ports[msg_dic['src']]
 
-        """update self.ports with the new network
-        if msg_dic['msg']['network'] not in self.ports:
-            self.ports[msg_dic['msg']['network']] = port
-        """
-        print(self.ports)
-        print(port)
-        print(self.table_original)
-        key = msg_dic['msg']['network'] + msg_dic['msg']['netmask']
-        self.table_original[port][key] = msg_dic['msg']
+        self.table_original[port].append(msg_dic['msg'])
 
         #add peer information
-        self.table_original[port][key]['peer'] = msg_dic['src']
+        self.table_original[port][-1]['peer'] = msg_dic['src']
 
         ##########
         # send copies of the announcement
@@ -88,21 +83,78 @@ class Router:
         ##########
 
 
-    """def send_data(self, ):
+    def search_port(self, ip):
+        port = -1
+        ip_split = ip.split('.')
+
+        i=0
+        ports_list = list(self.table_original.keys())
+        exit = False
+        while not exit and i<len(ports_list):
+            networks_of_port_list = self.table_original[ports_list[i]]
+            j=0
+            while not exit and j<len(networks_of_port_list):
+                #apply the mask
+                aux = networks_of_port_list[j]['netmask'].split('.')
+                dest_masked = [int(ip_split[index]) & int(aux[index]) for index in range(4)]
+                #compare with the given network
+                k=0
+                exit = True
+
+                while exit and k < 4:
+                    if dest_masked[k] != int(networks_of_port_list[j]['network'].split('.')[k]):
+                        exit = False
+                    k+=1
+
+                if exit:
+                    port = ports_list[i]
+
+                j+=1
+            i+=1
+
+        return port  # -1 if the port is not found
 
     def data(self, msg_dic):
-        self.send_data()"""
+        print(self.table_original)
+       
+        dest = msg_dic['dst']
+        dest_port = self.search_port(dest)
+
+        print("DEST_PORT", dest_port)
+
+        ##########
+        # trivial case: no route
+        ##########
+        if dest_port == -1 : # port not found
+            # search the port that contains the source
+            src = msg_dic['src']
+            src_port = self.search_port(src)
+
+        
+            self.send(self.ports_original[src_port], 
+                    json.dumps({"type": "no route",
+                            "src": self.our_addr(self.ports_original[src_port]),
+                            "dst": msg_dic['src'],
+                            "msg": {}}))
+
+        ##########
+        # trivial case: one destination found
+        ##########
+        else: # port found
+
+            self.send(self.ports_original[dest_port], 
+                    json.dumps({"type": "data",
+                            "src": self.our_addr(self.ports_original[dest_port]),
+                            "dst": msg_dic['dst'],
+                            "msg": msg_dic['msg']}))
 
     
     def dump(self, src):
-        print("*****************------------------------")
-        print(self.table_original)
-        print("*****************------------------------")
         self.send(src, 
                 json.dumps({"type": "table",
                                 "src": self.our_addr(src),
                                 "dst": src,
-                                "msg": [list(x.values())[0] for x in self.table_original.values()]})) #we need to forward a list just with the networks dict
+                                "msg": [x for sublist in self.table_original.values() for x in sublist]})) #we need to forward a list just with the networks dict
 
     
     
@@ -125,11 +177,11 @@ class Router:
                 if msg_dic["type"] == "update":
                     self.update(msg_dic)
 
+                elif msg_dic["type"] == "data":
+                    self.data(msg_dic)
+
                 elif msg_dic["type"] == "dump":
                     self.dump(msg_dic['src'])
-
-                #elif msg_dic["type"] == "data":
-                #self.data(msg_dic)
 
                 else:
                     print("Operation", msg_dic["type"], "not implemented yet")
