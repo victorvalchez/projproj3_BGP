@@ -54,15 +54,17 @@ class Router:
         ##########
         for ip in self.relations:
             if ip != msg_dic['src']: #Not updating the neighbor that has sent me the update
-                self.send(ip,
-                      json.dumps({"type": "update", 
-                                    "src": self.our_addr(ip), 
-                                    "dst": ip,
-                                    "msg": {
-                                        "network" : msg_dic['msg']['network'] ,
-                                        "netmask" : msg_dic['msg']['netmask'] , 
-                                        "ASPath" : [self.asn] + msg_dic['msg']['ASPath'] 
-                                    }}))
+                # updating the neighbours depends on the relations
+                if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
+                    self.send(ip,
+                        json.dumps({"type": "update", 
+                                        "src": self.our_addr(ip), 
+                                        "dst": ip,
+                                        "msg": {
+                                            "network" : msg_dic['msg']['network'] ,
+                                            "netmask" : msg_dic['msg']['netmask'] , 
+                                            "ASPath" : [self.asn] + msg_dic['msg']['ASPath'] 
+                                        }}))
 
 
 
@@ -86,7 +88,7 @@ class Router:
                     self.update(msg_dic)
    
                 else:
-                    print("operation ", msg_dic["type"], "not implemented")
+                    print("Operation", msg_dic["type"], "not implemented yet")
 
 
 
