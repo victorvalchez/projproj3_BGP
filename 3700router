@@ -12,7 +12,6 @@ class Router:
     def __init__(self, asn, connections):
         print("Router at AS %s starting up" % asn)
 
-
         self.asn = asn
         for relationship in connections:
             # Neighbor == IP that ends with .2
@@ -37,11 +36,11 @@ class Router:
 
     def update(self, msg_dic):
         ##########
-        #Save a copy of the announcement
+        # Save a copy of the announcement
         ##########
 
         ##########
-        #update forwarding table
+        # update forwarding table
         ##########
         if not msg_dic['src'] in self.table:
             self.table[msg_dic['src']] = {}
@@ -50,24 +49,21 @@ class Router:
         self.table[msg_dic['src']][key] = msg_dic['msg']
 
         ##########
-        #send copies of the announcement
+        # send copies of the announcement
         ##########
         for ip in self.relations:
-            if ip != msg_dic['src']: #Not updating the neighbor that has sent me the update
+            if ip != msg_dic['src']:  # Not updating the neighbor that has sent me the update
                 # updating the neighbours depends on the relations
                 if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
                     self.send(ip,
-                        json.dumps({"type": "update", 
-                                        "src": self.our_addr(ip), 
-                                        "dst": ip,
-                                        "msg": {
-                                            "network" : msg_dic['msg']['network'] ,
-                                            "netmask" : msg_dic['msg']['netmask'] , 
-                                            "ASPath" : [self.asn] + msg_dic['msg']['ASPath'] 
-                                        }}))
-
-
-
+                              json.dumps({"type": "update",
+                                          "src": self.our_addr(ip),
+                                          "dst": ip,
+                                          "msg": {
+                                              "network": msg_dic['msg']['network'],
+                                              "netmask": msg_dic['msg']['netmask'],
+                                              "ASPath": [self.asn] + msg_dic['msg']['ASPath']
+                                          }}))
 
     def run(self):
         while True:
@@ -81,17 +77,14 @@ class Router:
                         break
                 msg = k.decode('utf-8')
 
-                msg_dic = json.loads(msg) #msg now is a python dictionary
+                msg_dic = json.loads(msg)  # msg now is a python dictionary
                 print('-------------------------------------------')
                 print(msg_dic["type"])
                 if msg_dic["type"] == "update":
                     self.update(msg_dic)
-   
+
                 else:
                     print("Operation", msg_dic["type"], "not implemented yet")
-
-
-
 
                 print("Received message '%s' from %s" % (msg, srcif))
         return
