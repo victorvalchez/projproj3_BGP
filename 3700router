@@ -1,21 +1,21 @@
 #!/usr/bin/env -S python3 -u
 
-import argparse
-import json
-import select
-import socket
+import argparse, socket, time, json, select, struct, sys, math
 
 
 class Router:
     relations = {}
     sockets = {}
     ports = {}
+    table = {}
 
     def __init__(self, asn, connections):
         print("Router at AS %s starting up" % asn)
+
+
         self.asn = asn
         for relationship in connections:
-            # Neighbor == IP
+            # Neighbor == IP that ends with .2
             port, neighbor, relation = relationship.split("-")
 
             self.sockets[neighbor] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -35,6 +35,38 @@ class Router:
         self.sockets[network].sendto(message.encode('utf-8'), ('localhost', self.ports[network]))
         # I guess network is an index of the neighbor we want to send it to
 
+    def update(self, msg_dic):
+        ##########
+        #Save a copy of the announcement
+        ##########
+
+        ##########
+        #update forwarding table
+        ##########
+        if not msg_dic['src'] in self.table:
+            self.table[msg_dic['src']] = {}
+
+        key = msg_dic['msg']['network'] + msg_dic['msg']['netmask']
+        self.table[msg_dic['src']][key] = msg_dic['msg']
+
+        ##########
+        #send copies of the announcement
+        ##########
+        for ip in self.relations:
+            if ip != msg_dic['src']: #Not updating the neighbor that has sent me the update
+                self.send(ip,
+                      json.dumps({"type": "update", 
+                                    "src": self.our_addr(ip), 
+                                    "dst": ip,
+                                    "msg": {
+                                        "network" : msg_dic['msg']['network'] ,
+                                        "netmask" : msg_dic['msg']['netmask'] , 
+                                        "ASPath" : [self.asn] + msg_dic['msg']['ASPath'] 
+                                    }}))
+
+
+
+
     def run(self):
         while True:
             socks = select.select(self.sockets.values(), [], [], 0.1)[0]
@@ -51,8 +83,8 @@ class Router:
                 print('-------------------------------------------')
                 print(msg_dic["type"])
                 if msg_dic["type"] == "update":
-                    print(msg_dic)
-                    
+                    self.update(msg_dic)
+   
                 else:
                     print("operation ", msg_dic["type"], "not implemented")
 
