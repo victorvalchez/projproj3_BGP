@@ -141,7 +141,6 @@ class Router:
         # trivial case: one destination found
         ##########
         else: # port found
-
             self.send(self.ports_original[dest_port], 
                     json.dumps({"type": "data",
                             "src": self.our_addr(self.ports_original[dest_port]),
