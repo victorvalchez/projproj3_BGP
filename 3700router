@@ -48,6 +48,9 @@ class Router:
         key = msg_dic['msg']['network'] + msg_dic['msg']['netmask']
         self.table[msg_dic['src']][key] = msg_dic['msg']
 
+        #add peer information
+        self.table[msg_dic['src']][key]['peer'] = msg_dic['src']
+
         ##########
         # send copies of the announcement
         ##########
@@ -65,6 +68,24 @@ class Router:
                                               "ASPath": [self.asn] + msg_dic['msg']['ASPath']
                                           }}))
 
+        ##########
+        # check if aggregation
+        ##########
+
+
+    
+    def dump(self, src):
+        print("*****************------------------------")
+        print(self.table)
+        print("*****************------------------------")
+        self.send(src, 
+                json.dumps({"type": "table",
+                                "src": self.our_addr(src),
+                                "dst": src,
+                                "msg": [list(x.values())[0] for x in self.table.values()]})) #we need to forward a list just with the networks dict
+
+    
+    
     def run(self):
         while True:
             socks = select.select(self.sockets.values(), [], [], 0.1)[0]
@@ -80,11 +101,16 @@ class Router:
                 msg_dic = json.loads(msg)  # msg now is a python dictionary
                 print('-------------------------------------------')
                 print(msg_dic["type"])
+
                 if msg_dic["type"] == "update":
                     self.update(msg_dic)
 
+                elif msg_dic["type"] == "dump":
+                    self.dump(msg_dic['src'])
+
                 else:
                     print("Operation", msg_dic["type"], "not implemented yet")
+
 
                 print("Received message '%s' from %s" % (msg, srcif))
         return
