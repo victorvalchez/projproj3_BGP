@@ -7,7 +7,8 @@ class Router:
     relations = {}
     sockets = {}
     ports = {}
-    table = {}
+    table_original = {}
+    table_aggregation = {}
 
     def __init__(self, asn, connections):
         print("Router at AS %s starting up" % asn)
@@ -24,6 +25,9 @@ class Router:
             self.send(neighbor,
                       json.dumps({"type": "handshake", "src": self.our_addr(neighbor), "dst": neighbor, "msg": {}}))
 
+            self.table_original[int(port)] = {} 
+            
+
     def our_addr(self, dst):
         """Router IP address, takes the destination and changes the final 2 with a 1"""
         quads = list(int(qdn) for qdn in dst.split('.'))
@@ -38,18 +42,29 @@ class Router:
         ##########
         # Save a copy of the announcement
         ##########
+        #update table_original
 
         ##########
         # update forwarding table
         ##########
-        if not msg_dic['src'] in self.table:
-            self.table[msg_dic['src']] = {}
 
+        """if not self.ports[msg_dic['src']] in self.table_original:
+            self.table_original[self.ports[msg_dic['src']]] = {}"""
+
+        port = self.ports[msg_dic['src']]
+
+        """update self.ports with the new network
+        if msg_dic['msg']['network'] not in self.ports:
+            self.ports[msg_dic['msg']['network']] = port
+        """
+        print(self.ports)
+        print(port)
+        print(self.table_original)
         key = msg_dic['msg']['network'] + msg_dic['msg']['netmask']
-        self.table[msg_dic['src']][key] = msg_dic['msg']
+        self.table_original[port][key] = msg_dic['msg']
 
         #add peer information
-        self.table[msg_dic['src']][key]['peer'] = msg_dic['src']
+        self.table_original[port][key]['peer'] = msg_dic['src']
 
         ##########
         # send copies of the announcement
@@ -73,16 +88,21 @@ class Router:
         ##########
 
 
+    """def send_data(self, ):
+
+    def data(self, msg_dic):
+        self.send_data()"""
+
     
     def dump(self, src):
         print("*****************------------------------")
-        print(self.table)
+        print(self.table_original)
         print("*****************------------------------")
         self.send(src, 
                 json.dumps({"type": "table",
                                 "src": self.our_addr(src),
                                 "dst": src,
-                                "msg": [list(x.values())[0] for x in self.table.values()]})) #we need to forward a list just with the networks dict
+                                "msg": [list(x.values())[0] for x in self.table_original.values()]})) #we need to forward a list just with the networks dict
 
     
     
@@ -107,6 +127,9 @@ class Router:
 
                 elif msg_dic["type"] == "dump":
                     self.dump(msg_dic['src'])
+
+                #elif msg_dic["type"] == "data":
+                #self.data(msg_dic)
 
                 else:
                     print("Operation", msg_dic["type"], "not implemented yet")
