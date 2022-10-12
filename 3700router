@@ -126,11 +126,10 @@ class Router:
         # trivial case: no route
         ##########
         if dest_port == -1 : # port not found
-            # search the port that contains the source
+            # search the port that contains the source, to send the message back
             src = msg_dic['src']
             src_port = self.search_port(src)
 
-        
             self.send(self.ports_original[src_port], 
                     json.dumps({"type": "no route",
                             "src": self.our_addr(self.ports_original[src_port]),
@@ -141,9 +140,10 @@ class Router:
         # trivial case: one destination found
         ##########
         else: # port found
+            #forward the original message to the right destination
             self.send(self.ports_original[dest_port], 
                     json.dumps({"type": "data",
-                            "src": self.our_addr(self.ports_original[dest_port]),
+                            "src": msg_dic['src'],
                             "dst": msg_dic['dst'],
                             "msg": msg_dic['msg']}))
 
