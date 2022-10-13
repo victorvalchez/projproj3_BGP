@@ -8,11 +8,10 @@ class Router:
     sockets = {}
     ports = {}
 
-
-    table_original = {} # table that contains all the updates, no aggregation applied
+    table_original = {}  # table that contains all the updates, no aggregation applied
     table_aggregation = {}
-    ports_original = {} # dict to identify the IP associated to each port
-    ip_port_original = {} # dict to identify the port associated to each new IP
+    ports_original = {}  # dict to identify the IP associated to each port
+    ip_port_original = {}  # dict to identify the port associated to each new IP
 
     def __init__(self, asn, connections):
         print("Router at AS %s starting up" % asn)
@@ -54,12 +53,12 @@ class Router:
         # -----------
         # update forwarding table
         # -----------
-        port = self.ports[msg_dic['src']] #get the port from which we received the message
+        port = self.ports[msg_dic['src']]  # get the port from which we received the message
 
-        self.table_original[port].append(msg_dic['msg']) #add the update with the port as the key
-        self.table_original[port][-1]['peer'] = msg_dic['src'] # add peer information to the entry
+        self.table_original[port].append(msg_dic['msg'])  # add the update with the port as the key
+        self.table_original[port][-1]['peer'] = msg_dic['src']  # add peer information to the entry
 
-        #update auxiliar dictionary
+        # update auxiliar dictionary
         self.ip_port_original[msg_dic['msg']['network']] = self.ports[msg_dic['src']]
 
         # -----------
@@ -82,8 +81,7 @@ class Router:
         # -----------
         # check if aggregation
         # -----------
-        #TODO
-
+        # TODO
 
     def search_port(self, ip):
         port = -1
@@ -118,7 +116,8 @@ class Router:
         return port  # -1 if the port is not found
 
     def search_networks(self, ip):
-        network_matches = [] # list of all the networks that match the ip
+        """Find destiination IP """
+        network_matches = []  # list of all the networks that match the ip
         ip_split = ip.split('.')
 
         i = 0
@@ -147,18 +146,19 @@ class Router:
             i += 1
         return network_matches
 
-    def data_send(self, ip, type, src, dst, msg):
-        #if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
-        if self.relations[self.ports_original[self.search_port(src)]]  and self.relations[ip] == 'cust':
-            self.send(ip, json.dumps({"type": type, "src": src, "dst": dst, "msg": msg }))
+    def data_send(self, ip, type_msg, src, dst, msg):
+        """Check if we can send the data based on their relationship"""
+        if self.relations[self.ports_original[self.search_port(src)]] == 'cust' and self.relations[ip] == 'cust':
+            self.send(ip, json.dumps({"type": type_msg, "src": src, "dst": dst, "msg": msg}))
         else:
-            self.send(ip, json.dumps({"type": "no route", "src": src, "dst": dst, "msg": {} }))
+            self.send(ip, json.dumps({"type": "no route", "src": src, "dst": dst, "msg": {}}))
 
     def data(self, msg_dic):
+        """Check if there is a route and where to send the received data"""
         print(self.table_original)
 
-        #get the port associated with the IP of the destination
-        dest_networks = self.search_networks(msg_dic['dst']) 
+        # get the port associated with the IP of the destination
+        dest_networks = self.search_networks(msg_dic['dst'])
 
         print("DEST_PORT", dest_networks)
 
@@ -169,83 +169,87 @@ class Router:
             # search the port that contains the source, to send the message back
             src_port = self.search_port(msg_dic['src'])
 
-            self.data_send(self.ports_original[src_port], "no route", self.our_addr(self.ports_original[src_port]), msg_dic['src'], {})
+            self.data_send(self.ports_original[src_port], "no route", self.our_addr(self.ports_original[src_port]),
+                           msg_dic['src'], {})
 
         # -----------
         # trivial case: one destination found
         # -----------
         elif len(dest_networks) == 1:  # port found
             # forward the original message to the right destination
-            self.data_send(self.ports_original[self.ip_port_original[dest_networks[0]['network']]], "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
-       
+            self.data_send(self.ports_original[self.ip_port_original[dest_networks[0]['network']]], "data",
+                           msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+
         # -----------
         # non trivial case: choose the best "matching" network
         # -----------
         else:
-            # first of all: get the longest subnet mask
+            # first: get the longest subnet mask
             networks_longest_prefix = []
-           
 
-            max = 0
+            maxim = 0
             for network in dest_networks:
                 a = int(network['network'].replace('.', ''))
-                if a > max: 
-                    networks_longest_prefix = [ network ]
-                    max = a
-                elif a == max:
+                if a > maxim:
+                    networks_longest_prefix = [network]
+                    maxim = a
+                elif a == maxim:
                     networks_longest_prefix.append(network)
 
             print('NETWORKS LOnGEST PREFIX', networks_longest_prefix)
 
-            if len(networks_longest_prefix) == 1 :
+            if len(networks_longest_prefix) == 1:
                 # forward the original message to the right destination
-                self.data_send(self.ports_original[self.ip_port_original[networks_longest_prefix[0]['network']]], "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                self.data_send(self.ports_original[self.ip_port_original[networks_longest_prefix[0]['network']]],
+                               "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
-            else: 
-                # tie in the longest prefix
-
-                #check the highest local pref
+            else:  # tie in the longest prefix
+                # 1st: check the highest local pref
                 networks_highest_pref = []
-                max = 0
+                maxim = 0
                 for network in networks_longest_prefix:
-                    
+
                     a = network['localpref']
-                    if a > max: 
-                        networks_highest_pref = [ network ]
-                        max = a
-                    elif a == max:
+                    if a > maxim:
+                        networks_highest_pref = [network]
+                        maxim = a
+                    elif a == maxim:
                         networks_highest_pref.append(network)
 
                 if len(networks_highest_pref) == 1:
                     # forward the original message to the right destination
 
-                    self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]], "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                    self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]],
+                                   "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
                 else:
-                    #check selfOrigin
+                    # 2nd: check selfOrigin
                     for network in networks_highest_pref:
                         if not network['selfOrigin']:
                             networks_highest_pref.remove(network)
 
                     if len(networks_highest_pref) == 1:
-                        self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]], "data", msg_dic['src'],msg_dic['dst'], msg_dic['msg'])
+                        self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]],
+                                       "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+
                     else:
-                        #check ASpath
+                        # 3rd: check ASpath
                         networks_shortest_ASPath = []
-                        max = 0
+                        maxim = 0
                         for network in networks_highest_pref:
-                            
+
                             a = len(network['ASPath'])
-                            if a > max: 
-                                networks_shortest_ASPath = [ network ]
-                                max = a
-                            elif a == max:
+                            if a > maxim:
+                                networks_shortest_ASPath = [network]
+                                maxim = a
+                            elif a == maxim:
                                 networks_shortest_ASPath.append(network)
 
                         if len(networks_shortest_ASPath) == 1:
-                            self.data_send(self.ports_original[self.ip_port_original[networks_shortest_ASPath[0]['network']]],
-                                             "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                            self.data_send(
+                                self.ports_original[self.ip_port_original[networks_shortest_ASPath[0]['network']]],
+                                "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
                         else:
-                            #check origin
+                            # 4th: check origin
                             igp, egp, unk = [], [], []
                             for network in networks_shortest_ASPath:
                                 if network['origin'] == 'IGP':
@@ -263,41 +267,34 @@ class Router:
                                 final_candidates = igp
 
                             if len(final_candidates) == 1:
-                                self.data_send(self.ports_original[self.ip_port_original[final_candidates[0]['network']]], "data",
-                                                msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                                self.data_send(
+                                    self.ports_original[self.ip_port_original[final_candidates[0]['network']]], "data",
+                                    msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
                             else:
-                                #check src
+                                #  5th: check src
                                 networks_lowest_src = []
                                 min = int(final_candidates[0]['peer'].replace('.', ''))
                                 for network in final_candidates:
                                     a = int(network['peer'].replace('.', ''))
-                                    if a < min: 
-                                        networks_lowest_src = [ network ]
+                                    if a < min:
+                                        networks_lowest_src = [network]
                                         min = a
                                     elif a == min:
                                         networks_lowest_src.append(network)
 
-                                #the problem statement ensures that there will be no ties at this point
-
-
-                                self.data_send(self.ports_original[self.ip_port_original[networks_lowest_src[0]['network']]], "data", msg_dic['src'],
-                                                msg_dic['dst'], msg_dic['msg'])
-
-
-                                
-
-
-
-
-
+                                # the problem statement ensures that there will be no ties at this point
+                                self.data_send(
+                                    self.ports_original[self.ip_port_original[networks_lowest_src[0]['network']]],
+                                    "data", msg_dic['src'],
+                                    msg_dic['dst'], msg_dic['msg'])
 
     def dump(self, src):
         self.send(src,
                   json.dumps({"type": "table",
                               "src": self.our_addr(src),
                               "dst": src,
-                              "msg": [x for sublist in self.table_original.values() for x in sublist]})) 
-                              # we need to forward a list just with the networks dict
+                              "msg": [x for sublist in self.table_original.values() for x in sublist]}))
+        # we need to forward a list just with the networks dict
 
     def run(self):
         while True:
