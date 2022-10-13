@@ -295,6 +295,30 @@ class Router:
                               "dst": src,
                               "msg": [x for sublist in self.table_original.values() for x in sublist]}))
         # we need to forward a list just with the networks dict
+        
+    def withdraw(self, msg_dic):
+        #save a copy of the revocation
+        #TODO
+
+        
+        #delete the network in the forwarding table
+        for net_original in self.table_original[self.ports[msg_dic['src']]]:
+            for net_withdraw in msg_dic['msg']:
+                if net_original['network'] == net_withdraw['network'] \
+                    and net_original['netmask'] == net_withdraw['netmask']:
+
+                    self.table_original[self.ports[msg_dic['src']]].remove(net_original)
+        
+        #update neighbors about the withdram
+        for ip in self.relations:
+            if ip != msg_dic['src']:  # Not updating the neighbor that has sent me the update
+                # updating the neighbours depends on the relations
+                if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
+                    self.send(ip,
+                              json.dumps({"type": "withdraw" ,
+                                          "src": self.our_addr(ip),
+                                          "dst": ip,
+                                          "msg": msg_dic['msg']}))
 
     def run(self):
         while True:
@@ -320,6 +344,9 @@ class Router:
 
                 elif msg_dic["type"] == "dump":
                     self.dump(msg_dic['src'])
+                    
+                elif msg_dic["type"] == "withdraw":
+                    self.withdraw(msg_dic)
 
                 else:
                     print("Operation", msg_dic["type"], "not implemented yet")
