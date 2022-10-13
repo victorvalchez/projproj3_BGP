@@ -8,9 +8,10 @@ class Router:
     sockets = {}
     ports = {}
 
-    table_original = {}
+
+    table_original = {} # table that contains all the updates, no aggregation applied
     table_aggregation = {}
-    ports_original = {}
+    ports_original = {} # dict to identify the IP associated to each port
 
     def __init__(self, asn, connections):
         print("Router at AS %s starting up" % asn)
@@ -40,24 +41,20 @@ class Router:
 
     def send(self, network, message):
         self.sockets[network].sendto(message.encode('utf-8'), ('localhost', self.ports[network]))
-        # I guess network is an index of the neighbor we want to send it to
 
     def update(self, msg_dic):
         # -----------
         # Save a copy of the announcement
         # -----------
-        # update table_original
+        # TODO
 
         # -----------
         # update forwarding table
         # -----------
+        port = self.ports[msg_dic['src']] #get the port from which we received the message
 
-        port = self.ports[msg_dic['src']]
-
-        self.table_original[port].append(msg_dic['msg'])
-
-        # add peer information
-        self.table_original[port][-1]['peer'] = msg_dic['src']
+        self.table_original[port].append(msg_dic['msg']) #add the update with the port as the key
+        self.table_original[port][-1]['peer'] = msg_dic['src'] # add peer information to the entry
 
         # -----------
         # send copies of the announcement
@@ -79,6 +76,7 @@ class Router:
         # -----------
         # check if aggregation
         # -----------
+        #TODO
 
     def search_port(self, ip):
         port = -1
@@ -115,8 +113,8 @@ class Router:
     def data(self, msg_dic):
         print(self.table_original)
 
-        dest = msg_dic['dst']
-        dest_port = self.search_port(dest)
+        #get the port associated with the IP of the destination
+        dest_port = self.search_port(msg_dic['dst']) 
 
         print("DEST_PORT", dest_port)
 
@@ -125,8 +123,7 @@ class Router:
         # -----------
         if dest_port == -1:  # port not found
             # search the port that contains the source, to send the message back
-            src = msg_dic['src']
-            src_port = self.search_port(src)
+            src_port = self.search_port(msg_dic['src'])
 
             self.send(self.ports_original[src_port],
                       json.dumps({"type": "no route",
@@ -150,8 +147,8 @@ class Router:
                   json.dumps({"type": "table",
                               "src": self.our_addr(src),
                               "dst": src,
-                              "msg": [x for sublist in self.table_original.values() for x in
-                                      sublist]}))  # we need to forward a list just with the networks dict
+                              "msg": [x for sublist in self.table_original.values() for x in sublist]})) 
+                              # we need to forward a list just with the networks dict
 
     def run(self):
         while True:
