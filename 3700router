@@ -236,7 +236,6 @@ class Router:
                         networks_shortest_ASPath = []
                         maxim = 0
                         for network in networks_highest_pref:
-
                             a = len(network['ASPath'])
                             if a > maxim:
                                 networks_shortest_ASPath = [network]
@@ -273,20 +272,19 @@ class Router:
                             else:
                                 #  5th: check src
                                 networks_lowest_src = []
-                                min = int(final_candidates[0]['peer'].replace('.', ''))
+                                mini = int(final_candidates[0]['peer'].replace('.', ''))
                                 for network in final_candidates:
                                     a = int(network['peer'].replace('.', ''))
-                                    if a < min:
+                                    if a < mini:
                                         networks_lowest_src = [network]
-                                        min = a
-                                    elif a == min:
+                                        mini = a
+                                    elif a == mini:
                                         networks_lowest_src.append(network)
 
                                 # the problem statement ensures that there will be no ties at this point
                                 self.data_send(
                                     self.ports_original[self.ip_port_original[networks_lowest_src[0]['network']]],
-                                    "data", msg_dic['src'],
-                                    msg_dic['dst'], msg_dic['msg'])
+                                    "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
     def dump(self, src):
         self.send(src,
@@ -295,27 +293,25 @@ class Router:
                               "dst": src,
                               "msg": [x for sublist in self.table_original.values() for x in sublist]}))
         # we need to forward a list just with the networks dict
-        
-    def withdraw(self, msg_dic):
-        #save a copy of the revocation
-        #TODO
 
-        
-        #delete the network in the forwarding table
+    def withdraw(self, msg_dic):
+        # save a copy of the revocation
+        # TODO
+
+        # delete the network in the forwarding table
         for net_original in self.table_original[self.ports[msg_dic['src']]]:
             for net_withdraw in msg_dic['msg']:
                 if net_original['network'] == net_withdraw['network'] \
-                    and net_original['netmask'] == net_withdraw['netmask']:
-
+                        and net_original['netmask'] == net_withdraw['netmask']:
                     self.table_original[self.ports[msg_dic['src']]].remove(net_original)
-        
-        #update neighbors about the withdram
+
+        # update neighbors about the withdram
         for ip in self.relations:
             if ip != msg_dic['src']:  # Not updating the neighbor that has sent me the update
                 # updating the neighbours depends on the relations
                 if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
                     self.send(ip,
-                              json.dumps({"type": "withdraw" ,
+                              json.dumps({"type": "withdraw",
                                           "src": self.our_addr(ip),
                                           "dst": ip,
                                           "msg": msg_dic['msg']}))
@@ -344,7 +340,7 @@ class Router:
 
                 elif msg_dic["type"] == "dump":
                     self.dump(msg_dic['src'])
-                    
+
                 elif msg_dic["type"] == "withdraw":
                     self.withdraw(msg_dic)
 
