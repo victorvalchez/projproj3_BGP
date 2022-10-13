@@ -26,6 +26,7 @@ class Router:
             self.sockets[neighbor].bind(('localhost', 0))
 
             self.ports[neighbor] = int(port)
+            # TODO, replace this variable with 'peer' attribute
             self.ports_original[int(port)] = neighbor
             self.ip_port_original[neighbor] = int(port)
 
@@ -146,6 +147,12 @@ class Router:
             i += 1
         return network_matches
 
+    def data_send(self, ip, type, src, dst, msg):
+        #if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
+        if self.relations[self.ports_original[self.search_port(src)]]  and self.relations[ip] == 'cust':
+            self.send(ip, json.dumps({"type": type, "src": src, "dst": dst, "msg": msg }))
+        else:
+            self.send(ip, json.dumps({"type": "no route", "src": src, "dst": dst, "msg": {} }))
 
     def data(self, msg_dic):
         print(self.table_original)
@@ -162,22 +169,14 @@ class Router:
             # search the port that contains the source, to send the message back
             src_port = self.search_port(msg_dic['src'])
 
-            self.send(self.ports_original[src_port],
-                      json.dumps({"type": "no route",
-                                  "src": self.our_addr(self.ports_original[src_port]),
-                                  "dst": msg_dic['src'],
-                                  "msg": {}}))
+            self.data_send(self.ports_original[src_port], "no route", self.our_addr(self.ports_original[src_port]), msg_dic['src'], {})
 
         # -----------
         # trivial case: one destination found
         # -----------
         elif len(dest_networks) == 1:  # port found
             # forward the original message to the right destination
-            self.send(self.ports_original[self.ip_port_original[dest_networks[0]['network']]],
-                      json.dumps({"type": "data",
-                                  "src": msg_dic['src'],
-                                  "dst": msg_dic['dst'],
-                                  "msg": msg_dic['msg']}))
+            self.data_send(self.ports_original[self.ip_port_original[dest_networks[0]['network']]], "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
        
         # -----------
         # non trivial case: choose the best "matching" network
@@ -185,6 +184,7 @@ class Router:
         else:
             # first of all: get the longest subnet mask
             networks_longest_prefix = []
+           
 
             max = 0
             for network in dest_networks:
@@ -199,20 +199,95 @@ class Router:
 
             if len(networks_longest_prefix) == 1 :
                 # forward the original message to the right destination
-                self.send(self.ports_original[self.ip_port_original[networks_longest_prefix[0]['network']]],
-                      json.dumps({"type": "data",
-                                  "src": msg_dic['src'],
-                                  "dst": msg_dic['dst'],
-                                  "msg": msg_dic['msg']}))
+                self.data_send(self.ports_original[self.ip_port_original[networks_longest_prefix[0]['network']]], "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+
             else: 
                 # tie in the longest prefix
-                #TODO
+
                 #check the highest local pref
-                #check selfOrigin
-                #check ASpath
-                #check origin
-                #check src
-                pass
+                networks_highest_pref = []
+                max = 0
+                for network in networks_longest_prefix:
+                    
+                    a = network['localpref']
+                    if a > max: 
+                        networks_highest_pref = [ network ]
+                        max = a
+                    elif a == max:
+                        networks_highest_pref.append(network)
+
+                if len(networks_highest_pref) == 1:
+                    # forward the original message to the right destination
+
+                    self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]], "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                else:
+                    #check selfOrigin
+                    for network in networks_highest_pref:
+                        if not network['selfOrigin']:
+                            networks_highest_pref.remove(network)
+
+                    if len(networks_highest_pref) == 1:
+                        self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]], "data", msg_dic['src'],msg_dic['dst'], msg_dic['msg'])
+                    else:
+                        #check ASpath
+                        networks_shortest_ASPath = []
+                        max = 0
+                        for network in networks_highest_pref:
+                            
+                            a = len(network['ASPath'])
+                            if a > max: 
+                                networks_shortest_ASPath = [ network ]
+                                max = a
+                            elif a == max:
+                                networks_shortest_ASPath.append(network)
+
+                        if len(networks_shortest_ASPath) == 1:
+                            self.data_send(self.ports_original[self.ip_port_original[networks_shortest_ASPath[0]['network']]],
+                                             "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                        else:
+                            #check origin
+                            igp, egp, unk = [], [], []
+                            for network in networks_shortest_ASPath:
+                                if network['origin'] == 'IGP':
+                                    igp.append(network)
+                                elif network['origin'] == 'EGP':
+                                    egp.append(network)
+                                else:
+                                    unk.append(network)
+
+                            if len(igp) == 0 and len(egp) == 0:
+                                final_candidates = unk
+                            elif len(igp) == 0:
+                                final_candidates = egp
+                            else:
+                                final_candidates = igp
+
+                            if len(final_candidates) == 1:
+                                self.data_send(self.ports_original[self.ip_port_original[final_candidates[0]['network']]], "data",
+                                                msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                            else:
+                                #check src
+                                networks_lowest_src = []
+                                min = int(final_candidates[0]['peer'].replace('.', ''))
+                                for network in final_candidates:
+                                    a = int(network['peer'].replace('.', ''))
+                                    if a < min: 
+                                        networks_lowest_src = [ network ]
+                                        min = a
+                                    elif a == min:
+                                        networks_lowest_src.append(network)
+
+                                #the problem statement ensures that there will be no ties at this point
+
+
+                                self.data_send(self.ports_original[self.ip_port_original[networks_lowest_src[0]['network']]], "data", msg_dic['src'],
+                                                msg_dic['dst'], msg_dic['msg'])
+
+
+                                
+
+
+
 
 
 
