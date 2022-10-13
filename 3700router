@@ -218,9 +218,9 @@ class Router:
 
                 if len(networks_highest_pref) == 1:
                     # forward the original message to the right destination
-
                     self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]],
                                    "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+
                 else:
                     # 2nd: check selfOrigin
                     for network in networks_highest_pref:
