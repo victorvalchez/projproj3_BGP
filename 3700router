@@ -155,12 +155,12 @@ class Router:
 
     def data(self, msg_dic):
         """Check if there is a route and where to send the received data"""
-        print(self.table_original)
+        # print(self.table_original)
 
         # get the port associated with the IP of the destination
         dest_networks = self.search_networks(msg_dic['dst'])
 
-        print("DEST_PORT", dest_networks)
+        # print("DEST_PORT", dest_networks)
 
         # -----------
         # trivial case: no route
@@ -196,7 +196,7 @@ class Router:
                 elif a == maxim:
                     networks_longest_prefix.append(network)
 
-            print('NETWORKS LOnGEST PREFIX', networks_longest_prefix)
+            # print('NETWORKS LONGEST PREFIX', networks_longest_prefix)
 
             if len(networks_longest_prefix) == 1:
                 # forward the original message to the right destination
@@ -215,6 +215,7 @@ class Router:
                         maxim = a
                     elif a == maxim:
                         networks_highest_pref.append(network)
+                    # print('NETWORKS HIGHEST PREFIX', networks_highest_pref)
 
                 if len(networks_highest_pref) == 1:
                     # forward the original message to the right destination
@@ -223,25 +224,33 @@ class Router:
 
                 else:
                     # 2nd: check selfOrigin
-                    for network in networks_highest_pref:
+                    networks_selforigin = networks_highest_pref
+                    for network in networks_selforigin:
                         if not network['selfOrigin']:
-                            networks_highest_pref.remove(network)
+                            networks_selforigin.remove(network)
 
-                    if len(networks_highest_pref) == 1:
-                        self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]],
+                    # print('NETWORKS HIGHE PREFIX', networks_longest_prefix)
+
+                    if len(networks_selforigin) == 0:
+                        networks_selforigin = networks_highest_pref
+
+                    if len(networks_selforigin) == 1:
+                        self.data_send(self.ports_original[self.ip_port_original[networks_selforigin[0]['peer']]],
                                        "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
                     else:
                         # 3rd: check ASpath
                         networks_shortest_ASPath = []
-                        maxim = 0
-                        for network in networks_highest_pref:
+                        minim = len(networks_selforigin[0]['ASPath'])
+                        for network in networks_selforigin:
                             a = len(network['ASPath'])
-                            if a > maxim:
+                            if a < minim:
                                 networks_shortest_ASPath = [network]
-                                maxim = a
-                            elif a == maxim:
+                                minim = a
+                            elif a == minim:
                                 networks_shortest_ASPath.append(network)
+
+                        # print('NETWORKS SHORTEST AS', networks_shortest_ASPath)
 
                         if len(networks_shortest_ASPath) == 1:
                             self.data_send(
@@ -265,6 +274,8 @@ class Router:
                             else:
                                 final_candidates = igp
 
+                            # print('finals', final_candidates)
+
                             if len(final_candidates) == 1:
                                 self.data_send(
                                     self.ports_original[self.ip_port_original[final_candidates[0]['network']]], "data",
@@ -280,6 +291,8 @@ class Router:
                                         mini = a
                                     elif a == mini:
                                         networks_lowest_src.append(network)
+
+                                # print('lowest scr', networks_lowest_src)
 
                                 # the problem statement ensures that there will be no ties at this point
                                 self.data_send(
@@ -329,8 +342,8 @@ class Router:
                 msg = k.decode('utf-8')
 
                 msg_dic = json.loads(msg)  # msg now is a python dictionary
-                print('-------------------------------------------')
-                print(msg_dic["type"])
+                # print('-------------------------------------------')
+                # print(msg_dic["type"])
 
                 if msg_dic["type"] == "update":
                     self.update(msg_dic)

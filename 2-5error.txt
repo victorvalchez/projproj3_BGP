@@ -1,0 +1,42 @@
+Sending data from 172.169.0.25 to 192.168.1.25
+[6.0050   Peer 172.168.0.2]: Sent '{'src': '172.169.0.25', 'dst': '192.168.1.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0059          Simulator]: Sending data from 11.0.0.25 to 192.168.1.25
+[6.0059      Peer 10.0.0.2]: Sent '{'src': '11.0.0.25', 'dst': '192.168.1.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0067          Simulator]: Sending data from 172.169.0.25 to 192.168.1.25
+[6.0067      Peer 10.0.0.2]: Sent '{'src': '172.169.0.25', 'dst': '192.168.1.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0071          Simulator]: Sending data from 192.168.1.25 to 172.169.0.25
+[6.0071   Peer 192.168.0.2]: Sent '{'src': '192.168.1.25', 'dst': '172.169.0.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0075          Simulator]: Sending data from 11.0.0.25 to 172.169.0.25
+[6.0075      Peer 10.0.0.2]: Sent '{'src': '11.0.0.25', 'dst': '172.169.0.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0079          Simulator]: Sending data from 172.169.0.25 to 172.169.0.25
+[6.0079      Peer 10.0.0.2]: Sent '{'src': '172.169.0.25', 'dst': '172.169.0.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0084          Simulator]: Sending data from 192.168.1.25 to 11.0.0.25
+[6.0084   Peer 192.168.0.2]: Sent '{'src': '192.168.1.25', 'dst': '11.0.0.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0089          Simulator]: Sending data from 172.169.0.25 to 11.0.0.25
+[6.0090   Peer 172.168.0.2]: Sent '{'src': '172.169.0.25', 'dst': '11.0.0.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0093          Simulator]: Sending data from 192.168.1.25 to 172.169.0.25
+[6.0093   Peer 192.168.0.2]: Sent '{'src': '192.168.1.25', 'dst': '172.169.0.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0099          Simulator]: Sending data from 172.169.0.25 to 172.169.0.25
+[6.0099   Peer 172.168.0.2]: Sent '{'src': '172.169.0.25', 'dst': '172.169.0.25', 'type': 'data', 'msg': {'ignore': 'this'}}'
+[6.0103             Router]: Received message '{"src": "172.169.0.25", "dst": "192.168.1.25", "type": "data", "msg": {"ignore": "this"}}' from 172.168.0.2
+[6.0103             Router]: Received message '{"src": "11.0.0.25", "dst": "192.168.1.25", "type": "data", "msg": {"ignore": "this"}}' from 10.0.0.2
+[6.0103             Router]: Received message '{"src": "172.169.0.25", "dst": "192.168.1.25", "type": "data", "msg": {"ignore": "this"}}' from 10.0.0.2
+[6.0103             Router]: Received message '{"src": "192.168.1.25", "dst": "172.169.0.25", "type": "data", "msg": {"ignore": "this"}}' from 192.168.0.2
+[6.0103             Router]: Received message '{"src": "11.0.0.25", "dst": "172.169.0.25", "type": "data", "msg": {"ignore": "this"}}' from 10.0.0.2
+[6.0103             Router]: Received message '{"src": "172.169.0.25", "dst": "172.169.0.25", "type": "data", "msg": {"ignore": "this"}}' from 10.0.0.2
+[6.0103             Router]: Received message '{"src": "192.168.1.25", "dst": "11.0.0.25", "type": "data", "msg": {"ignore": "this"}}' from 192.168.0.2
+[6.0104   Peer 192.168.0.2]: Read '{"type": "data", "src": "172.169.0.25", "dst": "192.168.1.25", "msg": {"ignore": "this"}}'
+[6.0106      Peer 10.0.0.2]: Read '{"type": "data", "src": "192.168.1.25", "dst": "172.169.0.25", "msg": {"ignore": "this"}}'
+[6.0107             Router]: Received message '{"src": "192.168.1.25", "dst": "172.169.0.25", "type": "data", "msg": {"ignore": "this"}}' from 192.168.0.2
+[6.0107   Peer 192.168.0.2]: Read '{"type": "data", "src": "11.0.0.25", "dst": "192.168.1.25", "msg": {"ignore": "this"}}'
+[6.0108      Peer 10.0.0.2]: Read '{"type": "data", "src": "11.0.0.25", "dst": "172.169.0.25", "msg": {"ignore": "this"}}'
+[6.0109             Router]: Received message '{"src": "172.169.0.25", "dst": "11.0.0.25", "type": "data", "msg": {"ignore": "this"}}' from 172.168.0.2
+[6.0109   Peer 192.168.0.2]: Read '{"type": "data", "src": "172.169.0.25", "dst": "192.168.1.25", "msg": {"ignore": "this"}}'
+[6.0109      Peer 10.0.0.2]: Read '{"type": "data", "src": "172.169.0.25", "dst": "172.169.0.25", "msg": {"ignore": "this"}}'
+[6.0110      Peer 10.0.0.2]: Read '{"type": "data", "src": "192.168.1.25", "dst": "11.0.0.25", "msg": {"ignore": "this"}}'
+[6.0111      Peer 10.0.0.2]: Read '{"type": "data", "src": "192.168.1.25", "dst": "172.169.0.25", "msg": {"ignore": "this"}}'
+[6.0112      Peer 10.0.0.2]: Read '{"type": "data", "src": "172.169.0.25", "dst": "11.0.0.25", "msg": {"ignore": "this"}}'
+[6.0113             Router]: Received message '{"src": "172.169.0.25", "dst": "172.169.0.25", "type": "data", "msg": {"ignore": "this"}}' from 172.168.0.2
+[6.0113      Peer 10.0.0.2]: Read '{"type": "data", "src": "172.169.0.25", "dst": "172.169.0.25", "msg": {"ignore": "this"}}'
+[6.2548          Simulator]: ERROR: Peer 172.168.0.2 expected to receive 5 messages, but actually received 0
+[6.2548          Simulator]: ERROR: Peer 10.0.0.2 expected to receive 2 messages, but actually received 7
