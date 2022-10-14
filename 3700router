@@ -27,7 +27,7 @@ class Router:
             self.ports[neighbor] = int(port)
             # TODO, replace this variable with 'peer' attribute
             self.ports_original[int(port)] = neighbor
-            self.ip_port_original[neighbor] = int(port)
+            # self.ip_port_original[neighbor] = int(port)
 
             self.relations[neighbor] = relation
             self.send(neighbor,
@@ -59,7 +59,7 @@ class Router:
         self.table_original[port][-1]['peer'] = msg_dic['src']  # add peer information to the entry
 
         # update auxiliar dictionary
-        self.ip_port_original[msg_dic['msg']['network']] = self.ports[msg_dic['src']]
+        # self.ip_port_original[msg_dic['msg']['network']] = self.ports[msg_dic['src']]
 
         # -----------
         # send copies of the announcement
@@ -177,8 +177,8 @@ class Router:
         # -----------
         elif len(dest_networks) == 1:  # port found
             # forward the original message to the right destination
-            self.data_send(self.ports_original[self.ip_port_original[dest_networks[0]['network']]], "data",
-                           msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+            self.data_send(dest_networks[0]['peer'],
+                           "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
         # -----------
         # non trivial case: choose the best "matching" network
@@ -200,7 +200,7 @@ class Router:
 
             if len(networks_longest_prefix) == 1:
                 # forward the original message to the right destination
-                self.data_send(self.ports_original[self.ip_port_original[networks_longest_prefix[0]['network']]],
+                self.data_send(networks_longest_prefix[0]['peer'],
                                "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
             else:  # tie in the longest prefix
@@ -219,7 +219,7 @@ class Router:
 
                 if len(networks_highest_pref) == 1:
                     # forward the original message to the right destination
-                    self.data_send(self.ports_original[self.ip_port_original[networks_highest_pref[0]['network']]],
+                    self.data_send(networks_highest_pref[0]['peer'],
                                    "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
                 else:
@@ -230,12 +230,12 @@ class Router:
                             networks_selforigin.remove(network)
 
                     # print('NETWORKS HIGHE PREFIX', networks_longest_prefix)
-
+                    # In case all networks have selfOrigin = False restore the original list
                     if len(networks_selforigin) == 0:
                         networks_selforigin = networks_highest_pref
 
                     if len(networks_selforigin) == 1:
-                        self.data_send(self.ports_original[self.ip_port_original[networks_selforigin[0]['peer']]],
+                        self.data_send(networks_selforigin[0]['peer'],
                                        "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
                     else:
@@ -253,9 +253,8 @@ class Router:
                         # print('NETWORKS SHORTEST AS', networks_shortest_ASPath)
 
                         if len(networks_shortest_ASPath) == 1:
-                            self.data_send(
-                                self.ports_original[self.ip_port_original[networks_shortest_ASPath[0]['network']]],
-                                "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                            self.data_send(networks_shortest_ASPath[0]['peer'],
+                                           "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
                         else:
                             # 4th: check origin
                             igp, egp, unk = [], [], []
@@ -277,9 +276,8 @@ class Router:
                             # print('finals', final_candidates)
 
                             if len(final_candidates) == 1:
-                                self.data_send(
-                                    self.ports_original[self.ip_port_original[final_candidates[0]['network']]], "data",
-                                    msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                                self.data_send(final_candidates[0]['peer'],
+                                               "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
                             else:
                                 #  5th: check src
                                 networks_lowest_src = []
@@ -295,9 +293,8 @@ class Router:
                                 # print('lowest scr', networks_lowest_src)
 
                                 # the problem statement ensures that there will be no ties at this point
-                                self.data_send(
-                                    self.ports_original[self.ip_port_original[networks_lowest_src[0]['network']]],
-                                    "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
+                                self.data_send(networks_lowest_src[0]['peer'],
+                                               "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
     def dump(self, src):
         self.send(src,
