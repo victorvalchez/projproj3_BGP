@@ -11,7 +11,7 @@ class Router:
     table_original = {}  # table that contains all the updates, no aggregation applied
     table_aggregation = {}
     ports_original = {}  # dict to identify the IP associated to each port
-    ip_port_original = {}  # dict to identify the port associated to each new IP
+    #ip_port_original = {}  # dict to identify the port associated to each new IP
 
     def __init__(self, asn, connections):
         print("Router at AS %s starting up" % asn)
@@ -64,19 +64,11 @@ class Router:
         # -----------
         # send copies of the announcement
         # -----------
-        for ip in self.relations:
-            if ip != msg_dic['src']:  # Not updating the neighbor that has sent me the update
-                # updating the neighbours depends on the relations
-                if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
-                    self.send(ip,
-                              json.dumps({"type": "update",
-                                          "src": self.our_addr(ip),
-                                          "dst": ip,
-                                          "msg": {
-                                              "network": msg_dic['msg']['network'],
-                                              "netmask": msg_dic['msg']['netmask'],
-                                              "ASPath": [self.asn] + msg_dic['msg']['ASPath']
-                                          }}))
+        self.update_neighbors(msg_dic, "update",  {
+                                                    "network": msg_dic['msg']['network'],
+                                                    "netmask": msg_dic['msg']['netmask'],
+                                                    "ASPath": [self.asn] + msg_dic['msg']['ASPath']
+                                                    })
 
         # -----------
         # check if aggregation
@@ -148,10 +140,14 @@ class Router:
 
     def data_send(self, ip, type_msg, src, dst, msg):
         """Check if we can send the data based on their relationship"""
-        if self.relations[self.ports_original[self.search_port(src)]] == 'cust' and self.relations[ip] == 'cust':
+        if self.relations[self.ports_original[self.search_port(src)]] == 'cust' or self.relations[ip] == 'cust':
             self.send(ip, json.dumps({"type": type_msg, "src": src, "dst": dst, "msg": msg}))
         else:
-            self.send(ip, json.dumps({"type": "no route", "src": src, "dst": dst, "msg": {}}))
+            # search the port that contains the source, to send the message back
+            src_port = self.search_port(src)
+            src = self.our_addr(self.ports_original[src_port])
+
+            self.send(self.ports_original[src_port], json.dumps({"type": "no route", "src": src, "dst": dst, "msg": {}}))
 
     def data(self, msg_dic):
         """Check if there is a route and where to send the received data"""
@@ -166,11 +162,7 @@ class Router:
         # trivial case: no route
         # -----------
         if len(dest_networks) == 0:  # port not found
-            # search the port that contains the source, to send the message back
-            src_port = self.search_port(msg_dic['src'])
-
-            self.data_send(self.ports_original[src_port], "no route", self.our_addr(self.ports_original[src_port]),
-                           msg_dic['src'], {})
+            self.data_send( None, "no route", None, msg_dic['src'], {})
 
         # -----------
         # trivial case: one destination found
@@ -316,15 +308,19 @@ class Router:
                     self.table_original[self.ports[msg_dic['src']]].remove(net_original)
 
         # update neighbors about the withdram
+        self.update_neighbors(msg_dic, "withdraw", msg_dic['msg'])
+
+
+    def update_neighbors(self, msg_dic, type, msg):
         for ip in self.relations:
             if ip != msg_dic['src']:  # Not updating the neighbor that has sent me the update
                 # updating the neighbours depends on the relations
                 if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
                     self.send(ip,
-                              json.dumps({"type": "withdraw",
+                              json.dumps({"type": type,
                                           "src": self.our_addr(ip),
                                           "dst": ip,
-                                          "msg": msg_dic['msg']}))
+                                          "msg": msg}))
 
     def run(self):
         while True:
