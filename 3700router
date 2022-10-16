@@ -8,7 +8,7 @@ class Router:
     sockets = {}
     ports = {}
 
-    table_original = {}  # table that contains all the updates, no aggregation applied
+    table_disaggregated = {}  # table that contains all the updates, no aggregation applied
     table_aggregation = {}
     ports_original = {}  # dict to identify the IP associated to each port
     #ip_port_original = {}  # dict to identify the port associated to each new IP
@@ -33,7 +33,8 @@ class Router:
             self.send(neighbor,
                       json.dumps({"type": "handshake", "src": self.our_addr(neighbor), "dst": neighbor, "msg": {}}))
 
-            self.table_original[int(port)] = []
+            self.table_disaggregated[int(port)] = []
+            self.table_aggregation[int(port)] = []
 
     def our_addr(self, dst):
         """Router IP address, takes the destination and changes the final 2 with a 1"""
@@ -51,15 +52,12 @@ class Router:
         # TODO
 
         # -----------
-        # update forwarding table
+        # update disaggregated forwarding table
         # -----------
         port = self.ports[msg_dic['src']]  # get the port from which we received the message
 
-        self.table_original[port].append(msg_dic['msg'])  # add the update with the port as the key
-        self.table_original[port][-1]['peer'] = msg_dic['src']  # add peer information to the entry
-
-        # update auxiliar dictionary
-        # self.ip_port_original[msg_dic['msg']['network']] = self.ports[msg_dic['src']]
+        self.table_disaggregated[port].append(msg_dic['msg'])  # add the update with the port as the key
+        self.table_disaggregated[port][-1]['peer'] = msg_dic['src']  # add peer information to the entry
 
         # -----------
         # send copies of the announcement
@@ -70,32 +68,125 @@ class Router:
                                                     "ASPath": [self.asn] + msg_dic['msg']['ASPath']
                                                     })
 
+                                                    
         # -----------
+        # updated aggregated forwarding table
+        # -----------
+        self.table_aggregation[port].append(msg_dic['msg'])  # add the update with the port as the key
+        self.table_aggregation[port][-1]['peer'] = msg_dic['src']  # add peer information to the entry
+
         # check if aggregation
-        # -----------
-        # TODO
+        self.check_aggregation(port)
+
+
+        print("--------------------------------------------------------------")
+        print("AGGREG: ",self.table_aggregation)
+        print("DISAGGREG: ", self.table_disaggregated)
+        print("--------------------------------------------------------------")
+
+        
+ 
+
+    def check_aggregation(self, port):
+        # check if the last added network can be aggregated
+        i = 0
+        while i < len(self.table_aggregation[port]) - 1:
+            network = self.table_aggregation[port][i]
+            if self.is_aggregable(port, network):
+                #if we had performed aggregation, we must check everything again
+                i=0
+            else:
+                i+=1
+
+    def is_aggregable(self, port, network):
+        network2 = self.table_aggregation[port][-1]
+
+        print('network: ', network)
+        print('networik2: ', network2)
+
+        if network['localpref'] == network2['localpref']  and network['selfOrigin'] == network2['selfOrigin'] and network['origin'] == network2['origin'] and network['netmask'] == network2['netmask'] :
+            print('ha entrado')
+            
+            #check if the networks coincide
+            binary_netmask = self.ip_to_binary(network['netmask'])
+            print(binary_netmask)
+
+            long = 31
+            while long > 0 and binary_netmask[long] == '0':
+                long -= 1
+
+            # now long contains the position of the first '1' of the netwask
+            # which is the position of the first bit we don't want to compare
+
+            #convert both networks to binary
+            binary_network1 = self.ip_to_binary(network['netmask'])[0:long]
+            binary_network2 = self.ip_to_binary(network2['netmask'])[0:long]
+
+
+            if binary_network1 == binary_network2:
+                #Delete the original network (because of aggregation)
+                #by keeping the new one at the end, we can run the same algorithm again
+                self.table_aggregation[port].remove(network) 
+
+                #update the aggregated entry
+                #update netmask
+                aux = list(binary_netmask)
+                aux[long] = '0'
+                binary_netmask = ''.join(aux)
+                print(binary_netmask)
+                aux = [int(binary_netmask[i:i+8], 2) for i in range(0, 25, 8)]
+
+                self.table_aggregation[port][-1]['netmask'] = "%d.%d.%d.%d" % (aux[0], aux[1], aux[2], aux[3])
+
+                #we don't need to update the network because we are going to apply the mask anyways
+                #but looking at the tests given, we have to do it
+                #update network
+                binary_network = self.ip_to_binary(self.table_aggregation[port][-1]['network'])
+
+                aux = list(binary_network)
+                aux[long] = '0'
+                binary_network = ''.join(aux)
+                print(binary_network)
+                aux = [int(binary_network[i:i+8], 2) for i in range(0, 25, 8)]
+
+                self.table_aggregation[port][-1]['network'] = "%d.%d.%d.%d" % (aux[0], aux[1], aux[2], aux[3])
+
+                return True
+
+        return False
+
+
+    def ip_to_binary(self, ip):
+        aux = ip.split('.')
+        binary_number = ""
+        for i in aux:
+            binary = format(int(i), "08b") 
+            binary_number += str(binary)
+        return binary_number
+
 
     def search_port(self, ip):
         port = -1
         ip_split = ip.split('.')
 
         i = 0
-        ports_list = list(self.table_original.keys())
+        ports_list = list(self.table_disaggregated.keys())
         flag = False
         while not flag and i < len(ports_list):
-            networks_of_port_list = self.table_original[ports_list[i]]
+            networks_of_port_list = self.table_disaggregated[ports_list[i]]
             j = 0
             while not flag and j < len(networks_of_port_list):
                 # apply the mask
-                aux = networks_of_port_list[j]['netmask'].split('.')
-                dest_masked = [int(ip_split[index]) & int(aux[index]) for index in range(4)]
+                current_netmask = networks_of_port_list[j]['netmask'].split('.')
+                dest_masked = [int(ip_split[index]) & int(current_netmask[index]) for index in range(4)]
+                src_masked = [int(networks_of_port_list[j]['network'].split('.')[index]) & int(current_netmask[index]) for index in range(4)]
                 # compare with the given network
                 k = 0
                 flag = True
                 # Solo dejar la flag aqui y en los demas siempre correrlo, entonces al final coger
                 # el que mas largo tenga parecido
                 while flag and k < 4:
-                    if dest_masked[k] != int(networks_of_port_list[j]['network'].split('.')[k]):
+                    if dest_masked[k] != src_masked[k]:
                         flag = False
                     k += 1
 
@@ -113,21 +204,22 @@ class Router:
         ip_split = ip.split('.')
 
         i = 0
-        ports_list = list(self.table_original.keys())
+        ports_list = list(self.table_disaggregated.keys())
         while i < len(ports_list):
-            networks_of_port_list = self.table_original[ports_list[i]]
+            networks_of_port_list = self.table_disaggregated[ports_list[i]]
             j = 0
             while j < len(networks_of_port_list):
                 # apply the mask
-                aux = networks_of_port_list[j]['netmask'].split('.')
-                dest_masked = [int(ip_split[index]) & int(aux[index]) for index in range(4)]
+                current_netmask = networks_of_port_list[j]['netmask'].split('.')
+                dest_masked = [int(ip_split[index]) & int(current_netmask[index]) for index in range(4)]
+                src_masked = [int(networks_of_port_list[j]['network'].split('.')[index]) & int(current_netmask[index]) for index in range(4)]
                 # compare with the given network
                 k = 0
                 flag = True
                 # Solo dejar la flag aqui y en los demas siempre correrlo, entonces al final coger
                 # el que mas largo tenga parecido
                 while flag and k < 4:
-                    if dest_masked[k] != int(networks_of_port_list[j]['network'].split('.')[k]):
+                    if dest_masked[k] != src_masked[k]:
                         flag = False
                     k += 1
 
@@ -140,7 +232,7 @@ class Router:
 
     def data_send(self, ip, type_msg, src, dst, msg):
         """Check if we can send the data based on their relationship"""
-        if self.relations[self.ports_original[self.search_port(src)]] == 'cust' or self.relations[ip] == 'cust':
+        if ip and (self.relations[self.ports_original[self.search_port(src)]] == 'cust' or self.relations[ip] == 'cust'):
             self.send(ip, json.dumps({"type": type_msg, "src": src, "dst": dst, "msg": msg}))
         else:
             # search the port that contains the source, to send the message back
@@ -293,7 +385,7 @@ class Router:
                   json.dumps({"type": "table",
                               "src": self.our_addr(src),
                               "dst": src,
-                              "msg": [x for sublist in self.table_original.values() for x in sublist]}))
+                              "msg": [x for sublist in self.table_aggregation.values() for x in sublist]}))
         # we need to forward a list just with the networks dict
 
     def withdraw(self, msg_dic):
@@ -301,11 +393,11 @@ class Router:
         # TODO
 
         # delete the network in the forwarding table
-        for net_original in self.table_original[self.ports[msg_dic['src']]]:
+        for net_original in self.table_disaggregated[self.ports[msg_dic['src']]]:
             for net_withdraw in msg_dic['msg']:
                 if net_original['network'] == net_withdraw['network'] \
                         and net_original['netmask'] == net_withdraw['netmask']:
-                    self.table_original[self.ports[msg_dic['src']]].remove(net_original)
+                    self.table_disaggregated[self.ports[msg_dic['src']]].remove(net_original)
 
         # update neighbors about the withdram
         self.update_neighbors(msg_dic, "withdraw", msg_dic['msg'])
