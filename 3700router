@@ -68,20 +68,24 @@ class Router:
                                                     "ASPath": [self.asn] + msg_dic['msg']['ASPath']
                                                     })
 
-                                                    
+
+        print("--------------------------------------------------------------")
+        print("DISAGGREG 1: ", self.table_disaggregated)
+
+
         # -----------
         # updated aggregated forwarding table
         # -----------
         self.table_aggregation[port].append(msg_dic['msg'])  # add the update with the port as the key
-        self.table_aggregation[port][-1]['peer'] = msg_dic['src']  # add peer information to the entry
+        # add extra information to the entry
+        self.table_aggregation[port][-1]['peer'] = msg_dic['src'] 
+        self.table_aggregation[port][-1]['aggregated'] = False
 
         # check if aggregation
         self.check_aggregation(port)
 
 
-        print("--------------------------------------------------------------")
-        print("AGGREG: ",self.table_aggregation)
-        print("DISAGGREG: ", self.table_disaggregated)
+        print("DISAGGREG 2: ", self.table_disaggregated)
         print("--------------------------------------------------------------")
 
         
@@ -151,6 +155,7 @@ class Router:
 
                 self.table_aggregation[port][-1]['network'] = "%d.%d.%d.%d" % (aux[0], aux[1], aux[2], aux[3])
 
+                self.table_aggregation[port][-1]['aggregated'] = True
                 return True
 
         return False
@@ -392,12 +397,26 @@ class Router:
         # save a copy of the revocation
         # TODO
 
-        # delete the network in the forwarding table
+        # delete the network in the disaggregated forwarding table
+        for net_original in self.table_aggregation[self.ports[msg_dic['src']]]:
+            for net_withdraw in msg_dic['msg']:
+                """TODO, COMPARE NETWORKS APPLYING THE MASK OF NET_ORIGINAL TO BOTH
+                if net_original['network'] == net_withdraw['network'] \
+                        and net_original['netmask'] == net_withdraw['netmask']:
+
+                    current_netmask = net_original['netmask'].split('.')
+                    #dest_masked = [int(ip_split[index]) & int(current_netmask[index]) for index in range(4)]"""
+
+
+
+        # delete the network in the disaggregated forwarding table
         for net_original in self.table_disaggregated[self.ports[msg_dic['src']]]:
             for net_withdraw in msg_dic['msg']:
                 if net_original['network'] == net_withdraw['network'] \
                         and net_original['netmask'] == net_withdraw['netmask']:
                     self.table_disaggregated[self.ports[msg_dic['src']]].remove(net_original)
+
+        
 
         # update neighbors about the withdram
         self.update_neighbors(msg_dic, "withdraw", msg_dic['msg'])
