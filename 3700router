@@ -96,15 +96,11 @@ class Router:
                 i+=1
 
     def check_aggregation_after_withdraw(self, port):
-        print("-----------------------------------")
-        print("table BEFORE withdraw aggreg:")
-        print(self.table_aggregation[port])
         # check if the last added network can be aggregated
         i = 0
         while i < len(self.table_aggregation[port]):
             j = i+1
             while j < len(self.table_aggregation[port]):
-                print("\n", i, j, "\n")
                 if self.is_aggregable(port, self.table_aggregation[port][i], self.table_aggregation[port][j]):
                     #if we had performed aggregation, we must check everything again
                     i = -1
@@ -113,10 +109,6 @@ class Router:
                     j+=1
 
             i+=1
-
-        print("table AFTER withdraw aggreg:")
-        print(self.table_aggregation[port])
-        print("-----------------------------------")
 
     def is_aggregable(self, port, network1, network2):
 
@@ -132,22 +124,15 @@ class Router:
 
             # now long contains the position of the first '1' of the netwask
             # which is the position of the first bit we don't want to compare
-
-            print()
             
             #convert both networks to binary
             binary_network1 = self.ip_to_binary(network1['network'])[0:long]
             binary_network2 = self.ip_to_binary(network2['network'])[0:long]
-            print(binary_network1)
-            print(binary_network2)
 
 
             if binary_network1 == binary_network2:
                 #Delete the original network (because of aggregation)
                 #by keeping the new one at the end, we can run the same algorithm again (for the update case)
-                print("ANTES:             ", self.table_aggregation[port])
-                print("1   : ", network1)
-                print("2   : ", network2)
                 self.table_aggregation[port].remove(network1) 
 
                 #update the aggregated entry
@@ -188,10 +173,10 @@ class Router:
         ip_split = ip.split('.')
 
         i = 0
-        ports_list = list(self.table_disaggregated.keys())
+        ports_list = list(self.table_aggregation.keys())
         flag = False
         while not flag and i < len(ports_list):
-            networks_of_port_list = self.table_disaggregated[ports_list[i]]
+            networks_of_port_list = self.table_aggregation[ports_list[i]]
             j = 0
             while not flag and j < len(networks_of_port_list):
                 # apply the mask
@@ -222,9 +207,9 @@ class Router:
         ip_split = ip.split('.')
 
         i = 0
-        ports_list = list(self.table_disaggregated.keys())
+        ports_list = list(self.table_aggregation.keys())
         while i < len(ports_list):
-            networks_of_port_list = self.table_disaggregated[ports_list[i]]
+            networks_of_port_list = self.table_aggregation[ports_list[i]]
             j = 0
             while j < len(networks_of_port_list):
                 # apply the mask
