@@ -51,10 +51,10 @@ class Router:
         msg_dic_copy['msg'] = msg_dic['msg'].copy()
 
         # Update disaggregated forwarding table
-        port = self.ports[msg_dic['src']]  # get the port from which we received the message
+        port = self.ports[msg_dic['src']]  # Get the port from which we received the message
 
-        self.table_disaggregated[port].append(msg_dic['msg'])  # add the update with the port as the key
-        self.table_disaggregated[port][-1]['peer'] = msg_dic['src']  # add peer information to the entry
+        self.table_disaggregated[port].append(msg_dic['msg'])  # Add the update with the port as the key
+        self.table_disaggregated[port][-1]['peer'] = msg_dic['src']  # Add peer information to the entry
 
         # Send copies of the announcement
         self.update_neighbors(msg_dic, "update", {
@@ -74,6 +74,7 @@ class Router:
         self.check_aggregation_after_update(port)
 
     def check_aggregation_after_update(self, port):
+        """Goes over all entries in the aggregated table to see if new aggregation can be performed"""
         # check if the last added network can be aggregated
         i = 0
         while i < len(self.table_aggregation[port]) - 1:
@@ -85,13 +86,13 @@ class Router:
                 i += 1
 
     def check_aggregation_after_withdraw(self, port):
-
+        """Goes over all entries in the aggregated table to re-aggregate after a withdrawal"""
         i = 0
         while i < len(self.table_aggregation[port]):
             j = i + 1
             while j < len(self.table_aggregation[port]):
                 if self.is_aggregable(port, self.table_aggregation[port][i], self.table_aggregation[port][j]):
-                    # if we had performed aggregation, we must check everything again
+                    # If we had performed aggregation, we must check everything again
                     i = -1
                     j = len(self.table_aggregation[port])
                 else:
@@ -100,14 +101,14 @@ class Router:
             i += 1
 
     def is_aggregable(self, port, network1, network2):
-        """Check if both IPs can be aggregated, and performs the aggregation if possible"""
+        """Checks if both IPs can be aggregated, and performs the aggregation if possible"""
         if network1['localpref'] == network2['localpref'] \
                 and network1['selfOrigin'] == network2['selfOrigin'] \
                 and network1['origin'] == network2['origin'] \
                 and network1['netmask'] == network2['netmask']:
 
-            # check if the networks coincide
-            # both netmasks are equal, I can use either of them
+            # Check if the networks coincide
+            # Both netmasks are equal, I can use either of them
             binary_netmask = self.ip_to_binary(network1['netmask'])
 
             long = 31
@@ -170,12 +171,12 @@ class Router:
             networks_of_port_list = self.table_aggregation[ports_list[i]]
             j = 0
             while not flag and j < len(networks_of_port_list):
-                # apply the mask
+                # Apply the mask
                 current_netmask = networks_of_port_list[j]['netmask'].split('.')
                 dest_masked = [int(ip_split[index]) & int(current_netmask[index]) for index in range(4)]
                 src_masked = [int(networks_of_port_list[j]['network'].split('.')[index]) & int(current_netmask[index])
                               for index in range(4)]
-                # compare with the given network
+                # Compare with the given network
                 k = 0
                 flag = True
                 # For each number of the IP, compare if they are the same to see if they are connected
@@ -195,7 +196,7 @@ class Router:
 
     def search_networks(self, ip):
         """Find destiination IP """
-        network_matches = []  # list of all the networks that match the ip
+        network_matches = []  # List of all the networks that match the ip
         ip_split = ip.split('.')
 
         i = 0
@@ -204,12 +205,12 @@ class Router:
             networks_of_port_list = self.table_aggregation[ports_list[i]]
             j = 0
             while j < len(networks_of_port_list):
-                # apply the mask
+                # Apply the mask
                 current_netmask = networks_of_port_list[j]['netmask'].split('.')
                 dest_masked = [int(ip_split[index]) & int(current_netmask[index]) for index in range(4)]
                 src_masked = [int(networks_of_port_list[j]['network'].split('.')[index]) & int(current_netmask[index])
                               for index in range(4)]
-                # compare with the given network
+                # Compare with the given network
                 k = 0
                 flag = True
                 # Solo dejar la flag aqui y en los demas siempre correrlo, entonces al final coger
@@ -221,20 +222,19 @@ class Router:
 
                 if flag:
                     network_matches.append(networks_of_port_list[j])
-
                 j += 1
             i += 1
+
         return network_matches
 
     def data_send(self, ip, type_msg, src, dst, msg):
         """Check if we can send the data based on their relationship"""
-
         if ip is None:
             self.send(dst, json.dumps({"type": type_msg, "src": src, "dst": dst, "msg": msg}))
         elif self.relations[self.ports_original[self.search_port(src)]] == 'cust' or self.relations[ip] == 'cust':
             self.send(ip, json.dumps({"type": type_msg, "src": src, "dst": dst, "msg": msg}))
         else:
-            # search the port that contains the source, to send the message back
+            # Search the port that contains the source, to send the message back
             src_port = self.search_port(src)
             src = self.our_addr(self.ports_original[src_port])
 
@@ -243,29 +243,26 @@ class Router:
 
     def data(self, msg_dic):
         """Check if there is a route and where to send the received data"""
-        # get the port associated with the IP of the destination
+        # Get the port associated with the IP of the destination
         dest_networks = self.search_networks(msg_dic['dst'])
 
-        # -----------
-        # trivial case: no route
+        # Easy case: no route
         # -----------
         if len(dest_networks) == 0:  # port not found
             dst = self.ports_original[self.search_port(msg_dic['src'])]
             self.data_send(None, "no route", self.our_addr(dst), dst, {})
 
-        # -----------
-        # trivial case: one destination found
+        # Easy case: one destination found
         # -----------
         elif len(dest_networks) == 1:  # port found
             # forward the original message to the right destination
             self.data_send(dest_networks[0]['peer'],
                            "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
-        # -----------
-        # non trivial case: choose the best "matching" network
+        # Other case: choose the best "matching" network
         # -----------
         else:
-            # first: get the longest subnet mask
+            # First: get the longest subnet mask
             networks_longest_prefix = []
 
             maxim = 0
@@ -282,7 +279,7 @@ class Router:
                 self.data_send(networks_longest_prefix[0]['peer'],
                                "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
-            else:  # tie in the longest prefix
+            else:  # Tie in the longest prefix
                 # 1st: check the highest local pref
                 networks_highest_pref = []
                 maxim = 0
@@ -296,7 +293,7 @@ class Router:
                         networks_highest_pref.append(network)
 
                 if len(networks_highest_pref) == 1:
-                    # forward the original message to the right destination
+                    # Forward the original message to the right destination
                     self.data_send(networks_highest_pref[0]['peer'],
                                    "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
@@ -363,19 +360,21 @@ class Router:
                                     elif a == mini:
                                         networks_lowest_src.append(network)
 
-                                # the problem statement ensures that there will be no ties at this point
+                                # The problem statement ensures that there will be no ties at this point
                                 self.data_send(networks_lowest_src[0]['peer'],
                                                "data", msg_dic['src'], msg_dic['dst'], msg_dic['msg'])
 
     def dump(self, dst):
+        """Send the current forwarding table to the source requesting it"""
         self.send(dst,
                   json.dumps({"type": "table",
                               "src": self.our_addr(dst),
                               "dst": dst,
-                              "msg": [self.show(x) for sublist in self.table_aggregation.values() for x in sublist]}))
-        # we need to forward a list just with the networks dict
+                              "msg": [self.show_fields(x) for sublist in self.table_aggregation.values() for x in sublist]}))
+        # We need to forward a list just with the networks dictionary
 
-    def show(self, x):
+    def show_fields(self, x):
+        """Just return the necessary fields when dumping"""
         return {
             "network": x['network'],
             "netmask": x["netmask"],
@@ -387,18 +386,19 @@ class Router:
         }
 
     def withdraw(self, msg_dic):
-        # delete the network in the disaggregated forwarding table
+        """Deletes a connection from a router to a specific netowork"""
+        # Delete the network in the disaggregated forwarding table
         for net_from_table in self.table_disaggregated[self.ports[msg_dic['src']]]:
             for net_withdraw in msg_dic['msg']:
                 if net_from_table['network'] == net_withdraw['network'] \
                         and net_from_table['netmask'] == net_withdraw['netmask']:
                     self.table_disaggregated[self.ports[msg_dic['src']]].remove(net_from_table)
 
-        # delete the network in the disaggregated forwarding table
+        # Delete the network in the disaggregated forwarding table
         for net_from_table in self.table_aggregation[self.ports[msg_dic['src']]]:
             for net_withdraw in msg_dic['msg']:
-                # compare the two networks applying the mask of net_from_table (it's the lowest one)
-                # we don't need to apply the mask to net_withdraw because we save the network already masked
+                # Compare the two networks applying the mask of net_from_table (it's the lowest one)
+                # We don't need to apply the mask to net_withdraw because we save the network already masked
                 current_netmask = net_from_table['netmask'].split('.')
                 aux = [int(net_withdraw['network'].split('.')[index]) & int(current_netmask[index]) for index in
                        range(4)]
@@ -409,16 +409,17 @@ class Router:
                     if not net_from_table['aggregated']:
                         self.table_aggregation[self.ports[msg_dic['src']]].remove(net_from_table)
                     else:
-                        # if a aggregation has been performed, restore the table with the non aggregated copy
+                        # If an aggregation has been performed, restore the table with the non aggregated copy
                         self.table_aggregation[self.ports[msg_dic['src']]] = self.copy_networks(
                             self.table_disaggregated[self.ports[msg_dic['src']]])
 
                         self.check_aggregation_after_withdraw(self.ports[msg_dic['src']])
 
-        # update neighbors about the withdram
+        # Update neighbors about the withdram
         self.update_neighbors(msg_dic, "withdraw", msg_dic['msg'])
 
     def copy_networks(self, list_original):
+        """Copy the networks dictionary so the orignal does not get modified"""
         copied_list = []
         for dict in list_original:
             copied_list.append(dict.copy())
@@ -429,7 +430,7 @@ class Router:
         """For each network accesible through that router, send the messgae to them only if they are both customers"""
         for ip in self.relations:
             if ip != msg_dic['src']:  # Not updating the neighbor that has sent me the update
-                # updating the neighbours depends on the relations
+                # Updating the neighbours depends on the relations
                 if self.relations[msg_dic['src']] == 'cust' or self.relations[ip] == 'cust':
                     self.send(ip,
                               json.dumps({"type": type,
@@ -450,7 +451,7 @@ class Router:
                         break
                 msg = k.decode('utf-8')
 
-                msg_dic = json.loads(msg)  # msg now is a python dictionary
+                msg_dic = json.loads(msg)  # msg is now a python dictionary
 
                 if msg_dic["type"] == "update":
                     self.update(msg_dic)
